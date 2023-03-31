@@ -1,0 +1,41 @@
+# Nom du workflow
+name: Deploy to AWS EC2
+
+# Déclencheur du workflow (lors d'un push sur la branche main)
+on:
+  push:
+    branches:
+      - main
+
+# Liste des tâches (jobs) à exécuter
+jobs:
+  deploy:
+    # Exécute le job sur une machine virtuelle Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      # Étape 1 : Récupération du code source du dépôt git
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Étape 2 : Configuration de la clé SSH pour la connexion au serveur EC2
+      - name: Setup SSH key
+        env:
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          echo "$PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
+
+      # Étape 3 : Déploiement sur le serveur AWS EC2
+      - name: Deploy to AWS EC2
+        env:
+          HOST: ${{ secrets.HOSTNAME }}
+          USER: ${{ secrets.USER_NAME }}
+          PORT: 22
+        # Copie des fichiers du projet sur le serveur EC2 puis
+        # Connexion au serveur EC2, mise à jour du projet et lancement de Docker Compose
+        run: |
+
+          scp -i private_key.pem -P ${{ env.PORT }} -r . ${{ env.USER }}@${{ env.HOST }}:/var/www/html
+
+          ssh -i private_key.pem -p ${{ env.PORT }} ${{ env.USER }}@${{ env.HOST }} "cd /var/www/html && git pull && docker-compose up -d --build"
